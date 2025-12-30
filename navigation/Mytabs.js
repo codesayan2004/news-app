@@ -1,6 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import HomeScreen from '../Screens/HomeScreen';
-import ProfileScreen from '../Screens/SavedScreen';
+import SavedScreen from '../Screens/SavedScreen';
 import Search from '../Screens/Search';
 import Ioncons from 'react-native-vector-icons/Ionicons';
 import React, { useContext } from 'react';
@@ -40,7 +40,7 @@ export default function MyTabs() {
         />
         <Tab.Screen
           name="Saved"
-          component={ProfileScreen}
+          component={SavedScreen}
           options={{
             tabBarIcon: ({ color, size }) => (
               <Ioncons name="bookmark" size={size} color={color} />

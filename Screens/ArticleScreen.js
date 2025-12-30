@@ -11,12 +11,64 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { ThemeContext } from "../Context/ThemeContext";
+import { useState, useEffect } from "react";
+import { doc, setDoc, deleteDoc, getDoc } from "firebase/firestore";
+import { auth } from "../Firebase/firebaseConfig";
+import { db } from "../Firebase/firebaseConfig";
+
 
 export default function ArticleScreen({ route, navigation }) {
+  const { article } = route.params;
+  const user = auth.currentUser;
+  const articleId = encodeURIComponent(article.url);
+
   const { theme } = useContext(ThemeContext);
   const isDark = theme.isDark;
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+  
+    const checkSaved = async () => {
+      const ref = doc(db, "users", user.uid, "savedArticles", articleId);
+      const snap = await getDoc(ref);
+      setSaved(snap.exists());
+    };
+  
+    checkSaved();
+  }, [user, articleId]);
+  const toggleSave = async () => {
+    if (!user) {
+      alert("Please login to save articles");
+      return;
+    }
+  
+    const ref = doc(db, "users", user.uid, "savedArticles", articleId);
+  
+    try {
+      if (saved) {
+        // UNSAVE
+        await deleteDoc(ref);
+        setSaved(false);
+      } else {
+        // SAVE
+        await setDoc(ref, {
+          title: article.title,
+          description: article.description,
+          image: article.image,
+          url: article.url,
+          publishedAt: article.publishedAt,
+          source: article.source?.name || "GNews",
+          savedAt: new Date(),
+        });
+        setSaved(true);
+      }
+    } catch (err) {
+      console.error("Save error:", err);
+      alert("Something went wrong");
+    }
+  };
+  
 
-  const { article } = route.params;
   const publishedDate = new Date(article.publishedAt).toDateString();
 
   return (
@@ -32,16 +84,31 @@ export default function ArticleScreen({ route, navigation }) {
           <Icon name="arrow-back-outline" size={26} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>Article</Text>
-        <View style={{ width: 26 }} />
+
+        {/* SAVE BUTTON */}
+        <TouchableOpacity onPress={toggleSave}>
+          <Icon
+            name={saved ? "bookmark" : "bookmark-outline"}
+            size={24}
+            color={saved ? "#007bff" : theme.text}
+          />
+        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Image */}
-        <Image source={{ uri: article.urlToImage }} style={styles.image} />
+        <Image
+          source={{
+            uri: article.image || "https://via.placeholder.com/400",
+          }}
+          style={styles.image}
+        />
 
         {/* Content */}
         <View style={styles.content}>
-          <Text style={[styles.title, { color: theme.text }]}>{article.title}</Text>
+          <Text style={[styles.title, { color: theme.text }]}>
+            {article.title}
+          </Text>
 
           <Text style={[styles.meta, { color: theme.subText }]}>
             {article.source.name} • {publishedDate}

@@ -1,5 +1,5 @@
 // HomeScreen.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,21 +11,50 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-
-import { articlesData } from "../Data/articles";
+import { fetchNews } from "../services/newsApi";
 import ArticleScreen from "./ArticleScreen";
 import ProfileScreen from "./ProfileScreen";
 import { ThemeContext } from "../Context/ThemeContext";
 import { StatusBar } from "react-native";
 
-const categories = ["Technology", "Sports", "Politics", "Health", "Science"];
+const categories = [
+  { label: "General", value: "general" },
+  { label: "Technology", value: "technology" },
+  { label: "Sports", value: "sports" },
+  { label: "Business", value: "business" },
+  { label: "Health", value: "health" },
+  { label: "Science", value: "science" },
+];
+
 const Stack = createNativeStackNavigator();
 
 /* ---------------- HOME MAIN UI ---------------- */
 
 function HomeMain({ navigation }) {
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState("general");
+  const [articles, setArticles] = useState([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
   const { theme } = React.useContext(ThemeContext);
+
+  useEffect(() => {
+    loadNews(selectedCategory, true);
+  }, [selectedCategory]);
+
+  const loadNews = async (category, reset = false) => {
+    if (loading) return;
+
+    setLoading(true);
+
+    const currentPage = reset ? 1 : page;
+    const res = await fetchNews(category, currentPage);
+
+    setArticles((prev) => (reset ? res.articles : [...prev, ...res.articles]));
+
+    setPage(res.nextPage || currentPage);
+    setLoading(false);
+  };
+
   const renderArticle = ({ item }) => {
     const publishedDate = new Date(item.publishedAt);
     const now = new Date();
@@ -37,7 +66,12 @@ function HomeMain({ navigation }) {
         style={[styles.articleCard, { backgroundColor: theme.card }]}
         onPress={() => navigation.navigate("Article", { article: item })}
       >
-        <Image source={{ uri: item.urlToImage }} style={styles.thumbnail} />
+        <Image
+          source={{
+            uri: item.image || "https://via.placeholder.com/100",
+          }}
+          style={styles.thumbnail}
+        />
         <View style={styles.articleContent}>
           <Text style={[styles.title, { color: theme.text }]}>
             {item.title}
@@ -62,11 +96,29 @@ function HomeMain({ navigation }) {
       />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>
-          NewsHub
-        </Text>
+      <View
+        style={[
+          styles.header,
+          {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          },
+        ]}
+      >
+        {/* Left: Logo + Title */}
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Image
+            source={require("../assets/verizo-logo.png")} // Replace with your logo path
+            style={{ width: 35, height: 35, marginRight: 8 }}
+            resizeMode="contain"
+          />
+          <Text style={[styles.headerTitle, { color: theme.text }]}>
+            Verizo
+          </Text>
+        </View>
 
+        {/* Right: Profile Icon */}
         <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
           <Icon name="person-circle-outline" size={30} color={theme.text} />
         </TouchableOpacity>
@@ -79,16 +131,16 @@ function HomeMain({ navigation }) {
         style={styles.categories}
       >
         {categories.map((cat, index) => {
-          const isSelected = selectedCategory === cat;
+          const isSelected = selectedCategory === cat.value;
 
           return (
             <TouchableOpacity
               key={index}
-              onPress={() => setSelectedCategory(cat)}
+              onPress={() => setSelectedCategory(cat.value)}
               style={[
                 styles.categoryButton,
                 {
-                  backgroundColor: isSelected ? "#007bff" : theme.card, 
+                  backgroundColor: isSelected ? "#007bff" : theme.card,
                 },
               ]}
             >
@@ -96,11 +148,11 @@ function HomeMain({ navigation }) {
                 style={[
                   styles.categoryText,
                   {
-                    color: isSelected ? "#fff" : theme.text, 
+                    color: isSelected ? "#fff" : theme.text,
                   },
                 ]}
               >
-                {cat}
+                {cat.label}
               </Text>
             </TouchableOpacity>
           );
@@ -109,10 +161,13 @@ function HomeMain({ navigation }) {
 
       {/* Article List */}
       <FlatList
-        data={articlesData}
+        data={articles}
         renderItem={renderArticle}
         keyExtractor={(item, index) => index.toString()}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        onEndReached={() => page && loadNews(selectedCategory)}
+        onEndReachedThreshold={0.6}
+        refreshing={loading}
+        onRefresh={() => loadNews(selectedCategory, true)}
       />
     </View>
   );

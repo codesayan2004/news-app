@@ -10,11 +10,54 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { ThemeContext } from "../Context/ThemeContext";
+import { signOut } from "firebase/auth";
+import { auth } from "../Firebase/firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
 
-export default function ProfileScreen( { navigation }) {
+const getInitials = (name) => {
+  if (!name) return "?";
+
+  const words = name.trim().split(" ");
+  if (words.length === 1) return words[0][0].toUpperCase();
+
+  return (words[0][0] + words[1][0]).toUpperCase();
+};
+
+export default function ProfileScreen({ navigation }) {
   const { theme, toggleTheme } = useContext(ThemeContext);
   const isDark = theme.isDark;
 
+  const [user, setUser] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <Text style={{ color: theme.text }}>Loading...</Text>
+      </View>
+    );
+  }
+
+  const name = user?.displayName || "John Doe";
+  const email = user?.email || "No email";
   return (
     <View
       style={[
@@ -38,30 +81,14 @@ export default function ProfileScreen( { navigation }) {
 
       {/* Profile Info */}
       <View style={styles.profileCard}>
-        <Image
-          source={{ uri: "https://i.pravatar.cc/400" }}
-          style={styles.avatar}
-        />
+        <View style={[styles.avatar, styles.initialAvatar]}>
+          <Text style={styles.initialText}>{getInitials(name)}</Text>
+        </View>
 
         <Text style={[styles.name, { color: isDark ? "#fff" : "#000" }]}>
-          Sayan Mandal
+          {name}
         </Text>
-        <Text style={styles.email}>sayan.mandal@iitg.ac.in</Text>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={[styles.statNumber, { color: isDark ? "#fff" : "#000" }]}>
-              42
-            </Text>
-            <Text style={styles.statLabel}>Saved</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={[styles.statNumber, { color: isDark ? "#fff" : "#000" }]}>
-              12
-            </Text>
-            <Text style={styles.statLabel}>Likes</Text>
-          </View>
-        </View>
+        <Text style={styles.email}>{email}</Text>
       </View>
 
       {/* Dark Mode Toggle */}
@@ -76,12 +103,7 @@ export default function ProfileScreen( { navigation }) {
           size={20}
           color={isDark ? "#fff" : "#000"}
         />
-        <Text
-          style={[
-            styles.actionText,
-            { color: isDark ? "#fff" : "#000" },
-          ]}
-        >
+        <Text style={[styles.actionText, { color: isDark ? "#fff" : "#000" }]}>
           Dark Mode
         </Text>
         <Switch value={isDark} onValueChange={toggleTheme} />
@@ -93,8 +115,13 @@ export default function ProfileScreen( { navigation }) {
           styles.actionBtn,
           { backgroundColor: isDark ? "#1f1f1f" : "#f2f2f2" },
         ]}
+        onPress={() => navigation.navigate("Saved")}
       >
-        <Icon name="bookmark-outline" size={20} color={isDark ? "#fff" : "#000"} />
+        <Icon
+          name="bookmark-outline"
+          size={20}
+          color={isDark ? "#fff" : "#000"}
+        />
         <Text style={[styles.actionText, { color: isDark ? "#fff" : "#000" }]}>
           Saved Articles
         </Text>
@@ -106,13 +133,23 @@ export default function ProfileScreen( { navigation }) {
           { backgroundColor: isDark ? "#1f1f1f" : "#f2f2f2" },
         ]}
       >
-        <Icon name="settings-outline" size={20} color={isDark ? "#fff" : "#000"} />
+        <Icon
+          name="settings-outline"
+          size={20}
+          color={isDark ? "#fff" : "#000"}
+        />
         <Text style={[styles.actionText, { color: isDark ? "#fff" : "#000" }]}>
           Settings
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? "#1f1f1f" : "#f2f2f2" }]}>
+      <TouchableOpacity
+        style={[
+          styles.actionBtn,
+          { backgroundColor: isDark ? "#1f1f1f" : "#f2f2f2" },
+        ]}
+        onPress={handleLogout}
+      >
         <Icon name="log-out-outline" size={20} color="red" />
         <Text style={[styles.actionText, { color: "red" }]}>Logout</Text>
       </TouchableOpacity>
@@ -200,5 +237,16 @@ const styles = StyleSheet.create({
   logoutBtn: {
     marginTop: 10,
     backgroundColor: "#ffecec",
+  },
+  initialAvatar: {
+    backgroundColor: "#007bff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  initialText: {
+    color: "#fff",
+    fontSize: 36,
+    fontWeight: "bold",
   },
 });
